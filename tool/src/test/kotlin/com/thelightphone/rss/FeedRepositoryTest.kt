@@ -1,5 +1,7 @@
 package com.thelightphone.rss
 
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -30,7 +32,8 @@ class FeedRepositoryTest {
             },
         )
 
-        val result = repository.loadFeeds(listOf(goodFeed, badFeed))
+        val progress = repository.loadFeeds(listOf(goodFeed, badFeed)).toList()
+        val result = progress.toLoadResult()
 
         assertEquals(1, result.items.size)
         assertEquals("Good update", result.items.first().title)
@@ -59,9 +62,36 @@ class FeedRepositoryTest {
             },
         )
 
-        val result = repository.loadFeeds(listOf(feed))
+        val progress = repository.loadFeeds(listOf(feed)).toList()
+        val result = progress.toLoadResult()
 
         assertEquals("Newer update", result.items.first().title)
         assertTrue(result.failedFeeds.isEmpty())
     }
+
+    @Test
+    fun loadFeedsReportsSlowFeedAsFailure() = runBlocking {
+        val feed = FeedDefinition("Slow Feed", "https://example.com/slow.xml", "Slow")
+        val repository = FeedRepository(
+            fetchText = {
+                delay(100)
+                "<rss version=\"2.0\"><channel /></rss>"
+            },
+            feedTimeoutMillis = 10,
+        )
+
+        val progress = repository.loadFeeds(listOf(feed)).toList()
+        val result = progress.toLoadResult()
+
+        assertTrue(result.items.isEmpty())
+        assertEquals(listOf("Slow Feed"), result.failedFeeds)
+    }
+}
+
+private fun List<FeedLoadProgress>.toLoadResult(): FeedLoadResult {
+    return FeedLoadResult(
+        items = flatMap { it.items }.sortedForDisplay(),
+        failedFeeds = filter { it.error != null }.map { it.feed.title },
+        successfulFeedCount = count { it.error == null },
+    )
 }

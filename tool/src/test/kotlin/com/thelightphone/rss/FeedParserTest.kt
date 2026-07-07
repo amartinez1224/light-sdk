@@ -89,7 +89,7 @@ class FeedParserTest {
     @Test
     fun stripsBasicHtmlAndEntities() {
         val text = """
-            <div>CDC&nbsp;<strong>alert</strong> &amp; guidance&#8212;updated.</div>
+            &lt;div&gt;CDC&nbsp;&lt;strong&gt;alert&lt;/strong&gt; &amp; guidance&#8212;updated.&lt;/div&gt;
             <script>ignored()</script>
         """.trimIndent()
 

@@ -97,10 +97,21 @@ internal fun String.cleanFeedText(): String {
     if (isBlank()) return ""
 
     return this
-        .replace(Regex("<script[\\s\\S]*?</script>", RegexOption.IGNORE_CASE), " ")
+        .stripHtml()
+        .decodeHtmlEntities()
+        .stripHtml()
+        .replace(Regex("\\s+"), " ")
+        .trim()
+}
+
+private fun String.stripHtml(): String {
+    return replace(Regex("<script[\\s\\S]*?</script>", RegexOption.IGNORE_CASE), " ")
         .replace(Regex("<style[\\s\\S]*?</style>", RegexOption.IGNORE_CASE), " ")
         .replace(Regex("<[^>]+>"), " ")
-        .replace("&nbsp;", " ")
+}
+
+private fun String.decodeHtmlEntities(): String {
+    return replace("&nbsp;", " ")
         .replace("&amp;", "&")
         .replace("&lt;", "<")
         .replace("&gt;", ">")
@@ -110,10 +121,15 @@ internal fun String.cleanFeedText(): String {
         .replace("&#8211;", "-")
         .replace("&#8212;", "-")
         .replace(Regex("&#(\\d+);")) { match ->
-            match.groupValues[1].toIntOrNull()?.toChar()?.toString() ?: match.value
+            match.groupValues[1].toIntOrNull()?.toEntityString() ?: match.value
         }
-        .replace(Regex("\\s+"), " ")
-        .trim()
+        .replace(Regex("&#x([0-9a-fA-F]+);")) { match ->
+            match.groupValues[1].toIntOrNull(radix = 16)?.toEntityString() ?: match.value
+        }
+}
+
+private fun Int.toEntityString(): String? {
+    return runCatching { String(Character.toChars(this)) }.getOrNull()
 }
 
 private fun documentBuilderFactory(): DocumentBuilderFactory {
