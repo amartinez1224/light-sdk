@@ -31,6 +31,7 @@ class FeedRepository(
     private val fetchText: (suspend (String) -> String)? = null,
     private val parser: FeedParser = FeedParser(),
     private val feedTimeoutMillis: Long = DEFAULT_FEED_TIMEOUT_MILLIS,
+    private val itemLimit: Int = FEED_ITEM_PARSE_LIMIT,
 ) {
     private val client: HttpClient? = if (fetchText == null) {
         HttpClient(OkHttp) {
@@ -49,7 +50,7 @@ class FeedRepository(
             launch {
                 try {
                     val items = withTimeout(feedTimeoutMillis) {
-                        parser.parse(feed, fetchFeedText(feed.url))
+                        parser.parse(feed, fetchFeedText(feed.url), itemLimit = itemLimit)
                     }
                     send(
                         FeedLoadProgress(

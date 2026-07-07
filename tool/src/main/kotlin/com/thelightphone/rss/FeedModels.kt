@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 
 const val INITIAL_VISIBLE_ITEM_LIMIT = 12
 const val VISIBLE_ITEM_LIMIT_INCREMENT = 12
+const val FEED_ITEM_PARSE_LIMIT = 48
 
 data class FeedDefinition(
     val title: String,

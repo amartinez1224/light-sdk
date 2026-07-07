@@ -44,7 +44,10 @@ class FeedPreferencesTest {
     fun supportedFeedUrlsAllowHttpAndHttpsOnly() {
         assertTrue("https://example.com/feed.xml".isSupportedFeedUrl())
         assertTrue("http://example.com/feed.xml".isSupportedFeedUrl())
+        assertTrue("HTTPS://example.com/feed.xml".isSupportedFeedUrl())
         assertFalse("feed://example.com/feed.xml".isSupportedFeedUrl())
         assertFalse("example.com/feed.xml".isSupportedFeedUrl())
+        assertFalse("https://".isSupportedFeedUrl())
+        assertFalse("https:///feed.xml".isSupportedFeedUrl())
     }
 }

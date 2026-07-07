@@ -11,22 +11,30 @@ import java.time.format.DateTimeFormatter
 import javax.xml.parsers.DocumentBuilderFactory
 
 class FeedParser {
-    fun parse(feed: FeedDefinition, xml: String): List<FeedItem> {
+    fun parse(
+        feed: FeedDefinition,
+        xml: String,
+        itemLimit: Int = FEED_ITEM_PARSE_LIMIT,
+    ): List<FeedItem> {
         val document = documentBuilderFactory()
             .newDocumentBuilder()
             .parse(InputSource(StringReader(xml)))
         val root = document.documentElement
 
         return when (root.nodeNameForMatch()) {
-            "rss" -> parseRss(feed, root)
-            "feed" -> parseAtom(feed, root)
+            "rss" -> parseRss(feed, root, itemLimit)
+            "feed" -> parseAtom(feed, root, itemLimit)
             else -> throw IllegalArgumentException("Unsupported feed format: ${root.nodeName}")
         }
     }
 
-    private fun parseRss(feed: FeedDefinition, root: Element): List<FeedItem> {
+    private fun parseRss(
+        feed: FeedDefinition,
+        root: Element,
+        itemLimit: Int,
+    ): List<FeedItem> {
         val channel = root.directChild("channel") ?: root
-        return channel.directChildren("item").mapIndexed { index, item ->
+        return channel.directChildren("item", limit = itemLimit).mapIndexed { index, item ->
             val title = item.childText("title").cleanFeedText().ifBlank { "Untitled update" }
             val link = item.childText("link").trim()
             val publishedText = item.childText("pubDate").cleanFeedText()
@@ -45,8 +53,12 @@ class FeedParser {
         }
     }
 
-    private fun parseAtom(feed: FeedDefinition, root: Element): List<FeedItem> {
-        return root.directChildren("entry").mapIndexed { index, entry ->
+    private fun parseAtom(
+        feed: FeedDefinition,
+        root: Element,
+        itemLimit: Int,
+    ): List<FeedItem> {
+        return root.directChildren("entry", limit = itemLimit).mapIndexed { index, entry ->
             val title = entry.childText("title").cleanFeedText().ifBlank { "Untitled update" }
             val link = entry.atomLink()
             val publishedText = entry.childText("updated")
@@ -166,7 +178,12 @@ private fun Element.directChild(name: String): Element? {
     return directChildren(name).firstOrNull()
 }
 
-private fun Element.directChildren(name: String): List<Element> {
+private fun Element.directChildren(
+    name: String,
+    limit: Int = Int.MAX_VALUE,
+): List<Element> {
+    if (limit <= 0) return emptyList()
+
     val children = childNodes
     val nameForMatch = name.lowercase()
     return buildList {
@@ -174,6 +191,7 @@ private fun Element.directChildren(name: String): List<Element> {
             val child = children.item(index)
             if (child.nodeType == Node.ELEMENT_NODE && child.nodeNameForMatch() == nameForMatch) {
                 add(child as Element)
+                if (size >= limit) return@buildList
             }
         }
     }

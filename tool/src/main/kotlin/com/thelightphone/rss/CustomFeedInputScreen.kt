@@ -10,7 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.thelightphone.sdk.SealedLightActivity
@@ -42,13 +41,13 @@ private data class FeedTextInputRequest(
 
 class CustomFeedInputScreen(sealedActivity: SealedLightActivity) :
     SimpleLightScreen<CustomFeedInput>(sealedActivity) {
+    private var title by mutableStateOf("")
+    private var url by mutableStateOf("")
+    private var error by mutableStateOf<String?>(null)
 
     @Composable
     override fun Content() {
         val themeColors by LightThemeController.colors.collectAsState()
-        var title by rememberSaveable { mutableStateOf("") }
-        var url by rememberSaveable { mutableStateOf("") }
-        var error by rememberSaveable { mutableStateOf<String?>(null) }
 
         LightTheme(colors = themeColors) {
             Column(

@@ -87,6 +87,25 @@ class FeedParserTest {
     }
 
     @Test
+    fun respectsItemLimit() {
+        val items = parser.parse(
+            feed,
+            """
+            <rss version="2.0">
+                <channel>
+                    <item><title>First item</title></item>
+                    <item><title>Second item</title></item>
+                    <item><title>Third item</title></item>
+                </channel>
+            </rss>
+            """.trimIndent(),
+            itemLimit = 2,
+        )
+
+        assertEquals(listOf("First item", "Second item"), items.map { it.title })
+    }
+
+    @Test
     fun stripsBasicHtmlAndEntities() {
         val text = """
             &lt;div&gt;CDC&nbsp;&lt;strong&gt;alert&lt;/strong&gt; &amp; guidance&#8212;updated.&lt;/div&gt;

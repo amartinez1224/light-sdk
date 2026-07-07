@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.net.URI
 
 class FeedPreferencesStore(
     private val dataStore: DataStore<Preferences>,
@@ -51,14 +52,12 @@ internal fun StoredCustomFeed.toFeedDefinitionOrNull(): FeedDefinition? {
 }
 
 internal fun String.isSupportedFeedUrl(): Boolean {
-    val value = trim()
-    return value.startsWith("https://") || value.startsWith("http://")
+    val uri = runCatching { URI(trim()) }.getOrNull() ?: return false
+    val scheme = uri.scheme?.lowercase() ?: return false
+    return scheme in setOf("http", "https") && !uri.host.isNullOrBlank()
 }
 
 internal fun String.hostLikeTitle(): String {
-    return trim()
-        .removePrefix("https://")
-        .removePrefix("http://")
-        .substringBefore('/')
-        .ifBlank { "Custom Feed" }
+    val uri = runCatching { URI(trim()) }.getOrNull()
+    return uri?.host?.takeIf { it.isNotBlank() } ?: "Custom Feed"
 }

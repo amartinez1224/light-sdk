@@ -70,6 +70,29 @@ class FeedRepositoryTest {
     }
 
     @Test
+    fun loadFeedsAppliesItemLimitPerFeed() = runBlocking {
+        val feed = FeedDefinition("Limited Feed", "https://example.com/limited.xml", "Limited")
+        val repository = FeedRepository(
+            fetchText = {
+                """
+                <rss version="2.0">
+                    <channel>
+                        <item><title>First update</title></item>
+                        <item><title>Second update</title></item>
+                    </channel>
+                </rss>
+                """.trimIndent()
+            },
+            itemLimit = 1,
+        )
+
+        val progress = repository.loadFeeds(listOf(feed)).toList()
+        val result = progress.toLoadResult()
+
+        assertEquals(listOf("First update"), result.items.map { it.title })
+    }
+
+    @Test
     fun loadFeedsReportsSlowFeedAsFailure() = runBlocking {
         val feed = FeedDefinition("Slow Feed", "https://example.com/slow.xml", "Slow")
         val repository = FeedRepository(
