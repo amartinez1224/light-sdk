@@ -1,9 +1,15 @@
 package com.thelightphone.rss
 
+import kotlinx.serialization.Serializable
+
+const val INITIAL_VISIBLE_ITEM_LIMIT = 12
+const val VISIBLE_ITEM_LIMIT_INCREMENT = 12
+
 data class FeedDefinition(
     val title: String,
     val url: String,
     val category: String,
+    val custom: Boolean = false,
 )
 
 data class FeedItem(
@@ -21,7 +27,24 @@ data class EssentialFeedsUiState(
     val loading: Boolean = false,
     val refreshing: Boolean = false,
     val items: List<FeedItem> = emptyList(),
+    val customFeeds: List<FeedDefinition> = emptyList(),
+    val sourceStatuses: List<FeedSourceStatus> = emptyList(),
+    val selectedCategory: String? = null,
+    val visibleItemLimit: Int = INITIAL_VISIBLE_ITEM_LIMIT,
     val errorMessage: String? = null,
+)
+
+data class FeedSourceStatus(
+    val title: String,
+    val category: String,
+    val successful: Boolean,
+    val itemCount: Int = 0,
+)
+
+@Serializable
+data class StoredCustomFeed(
+    val title: String,
+    val url: String,
 )
 
 val defaultFeeds = listOf(

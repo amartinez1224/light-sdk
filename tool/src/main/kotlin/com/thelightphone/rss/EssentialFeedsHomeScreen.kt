@@ -36,7 +36,7 @@ class EssentialFeedsHomeScreen(sealedActivity: SealedLightActivity) :
     override val viewModelClass: Class<EssentialFeedsViewModel>
         get() = EssentialFeedsViewModel::class.java
 
-    override fun createViewModel() = EssentialFeedsViewModel()
+    override fun createViewModel() = EssentialFeedsViewModel(lightContext.dataStore)
 
     @Composable
     override fun Content() {
@@ -51,6 +51,15 @@ class EssentialFeedsHomeScreen(sealedActivity: SealedLightActivity) :
             ) {
                 LightTopBar(
                     center = LightTopBarCenter.Text("Essential Feeds"),
+                    rightButton = LightBarButton.Text(
+                        text = "ADD",
+                        onClick = {
+                            navigateTo(
+                                screenFactory = ::CustomFeedInputScreen,
+                                resultCallback = { input -> viewModel.addCustomFeed(input) },
+                            )
+                        },
+                    ),
                     modifier = Modifier.padding(bottom = 1f.gridUnitsAsDp()),
                 )
 
@@ -67,12 +76,28 @@ class EssentialFeedsHomeScreen(sealedActivity: SealedLightActivity) :
                 )
 
                 LightBottomBar(
-                    items = listOf(
-                        LightBarButton.Text(
-                            text = if (state.refreshing) "UPDATING" else "REFRESH",
-                            onClick = { viewModel.refresh() },
-                        ),
-                    ),
+                    items = buildList {
+                        add(
+                            LightBarButton.Text(
+                                text = if (state.refreshing) "UPDATING" else "REFRESH",
+                                onClick = { viewModel.refresh() },
+                            ),
+                        )
+                        add(
+                            LightBarButton.Text(
+                                text = state.selectedCategory ?: "ALL",
+                                onClick = { viewModel.cycleCategoryFilter() },
+                            ),
+                        )
+                        if (state.hasMoreVisibleItems()) {
+                            add(
+                                LightBarButton.Text(
+                                    text = "MORE",
+                                    onClick = { viewModel.loadMore() },
+                                ),
+                            )
+                        }
+                    },
                 )
             }
         }
@@ -85,6 +110,8 @@ private fun HomeContent(
     onOpenItem: (FeedItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val filteredItems = state.filteredItems()
+    val visibleItems = filteredItems.take(state.visibleItemLimit)
     when {
         state.loading && state.items.isEmpty() -> CenterMessage(
             text = "Loading updates...",
@@ -99,6 +126,11 @@ private fun HomeContent(
         else -> LightScrollView(
             modifier = modifier.padding(start = 1f.gridUnitsAsDp()),
         ) {
+            FeedListSummary(
+                state = state,
+                filteredCount = filteredItems.size,
+                visibleCount = visibleItems.size,
+            )
             state.errorMessage?.let { message ->
                 LightText(
                     text = message,
@@ -113,21 +145,74 @@ private fun HomeContent(
                 )
             }
 
-            state.items.forEach { item ->
-                FeedItemRow(
-                    item = item,
+            visibleItems.groupBySection(state.selectedCategory).forEach { (section, items) ->
+                LightText(
+                    text = section.uppercase(),
+                    variant = LightTextVariant.Fine,
+                    lighten = true,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .lightClickable { onOpenItem(item) }
                         .padding(
-                            top = 0.65f.gridUnitsAsDp(),
+                            top = 0.75f.gridUnitsAsDp(),
                             end = 1f.gridUnitsAsDp(),
-                            bottom = 0.65f.gridUnitsAsDp(),
+                            bottom = 0.25f.gridUnitsAsDp(),
                         ),
                 )
+                items.forEach { item ->
+                    FeedItemRow(
+                        item = item,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .lightClickable { onOpenItem(item) }
+                            .padding(
+                                top = 0.5f.gridUnitsAsDp(),
+                                end = 1f.gridUnitsAsDp(),
+                                bottom = 0.6f.gridUnitsAsDp(),
+                            ),
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+private fun FeedListSummary(
+    state: EssentialFeedsUiState,
+    filteredCount: Int,
+    visibleCount: Int,
+) {
+    val filterLabel = state.selectedCategory ?: "All sources"
+    val sourceCount = state.sourceStatuses.size
+    val failedCount = state.sourceStatuses.count { !it.successful }
+    val sourceText = when {
+        sourceCount == 0 -> filterLabel
+        failedCount == 0 -> "$filterLabel / $sourceCount sources"
+        else -> "$filterLabel / ${sourceCount - failedCount} of $sourceCount sources"
+    }
+
+    LightText(
+        text = sourceText,
+        variant = LightTextVariant.Detail,
+        lighten = true,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(end = 1f.gridUnitsAsDp()),
+    )
+    LightText(
+        text = "$visibleCount of $filteredCount updates shown",
+        variant = LightTextVariant.Fine,
+        lighten = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                top = 0.2f.gridUnitsAsDp(),
+                end = 1f.gridUnitsAsDp(),
+                bottom = 0.5f.gridUnitsAsDp(),
+            ),
+    )
 }
 
 @Composable
@@ -160,6 +245,23 @@ private fun FeedItemRow(
                 modifier = Modifier.padding(top = 0.2f.gridUnitsAsDp()),
             )
         }
+    }
+}
+
+private fun EssentialFeedsUiState.filteredItems(): List<FeedItem> {
+    val category = selectedCategory ?: return items
+    return items.filter { it.category == category }
+}
+
+private fun EssentialFeedsUiState.hasMoreVisibleItems(): Boolean {
+    return filteredItems().size > visibleItemLimit
+}
+
+private fun List<FeedItem>.groupBySection(selectedCategory: String?): Map<String, List<FeedItem>> {
+    return if (selectedCategory == null) {
+        groupBy { it.category }
+    } else {
+        groupBy { it.sourceTitle }
     }
 }
 
