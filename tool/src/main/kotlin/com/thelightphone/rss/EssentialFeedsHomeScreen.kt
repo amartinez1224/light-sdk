@@ -18,6 +18,7 @@ import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightBottomBar
+import com.thelightphone.sdk.ui.LightIcons
 import com.thelightphone.sdk.ui.LightScrollView
 import com.thelightphone.sdk.ui.LightText
 import com.thelightphone.sdk.ui.LightTextVariant
@@ -63,6 +64,12 @@ class EssentialFeedsHomeScreen(sealedActivity: SealedLightActivity) :
                     modifier = Modifier.padding(bottom = 1f.gridUnitsAsDp()),
                 )
 
+                SourceNavigationBar(
+                    state = state,
+                    onPreviousSource = viewModel::showPreviousSource,
+                    onNextSource = viewModel::showNextSource,
+                )
+
                 HomeContent(
                     state = state,
                     onOpenItem = { item ->
@@ -83,12 +90,6 @@ class EssentialFeedsHomeScreen(sealedActivity: SealedLightActivity) :
                                 onClick = { viewModel.refresh() },
                             ),
                         )
-                        add(
-                            LightBarButton.Text(
-                                text = state.selectedCategory ?: "ALL",
-                                onClick = { viewModel.cycleCategoryFilter() },
-                            ),
-                        )
                         if (state.hasMoreVisibleItems()) {
                             add(
                                 LightBarButton.Text(
@@ -102,6 +103,36 @@ class EssentialFeedsHomeScreen(sealedActivity: SealedLightActivity) :
             }
         }
     }
+}
+
+@Composable
+private fun SourceNavigationBar(
+    state: EssentialFeedsUiState,
+    onPreviousSource: () -> Unit,
+    onNextSource: () -> Unit,
+) {
+    LightTopBar(
+        leftButton = if (state.canMoveToPreviousSource()) {
+            LightBarButton.LightIcon(
+                icon = LightIcons.BACK,
+                onClick = onPreviousSource,
+                contentDescription = "Previous source",
+            )
+        } else {
+            null
+        },
+        center = LightTopBarCenter.Text(state.selectedSourceTitle ?: "All Sources"),
+        rightButton = if (state.canMoveToNextSource()) {
+            LightBarButton.LightIcon(
+                icon = LightIcons.ARROW_RIGHT,
+                onClick = onNextSource,
+                contentDescription = "Next source",
+            )
+        } else {
+            null
+        },
+        modifier = Modifier.padding(bottom = 0.5f.gridUnitsAsDp()),
+    )
 }
 
 @Composable
@@ -145,7 +176,7 @@ private fun HomeContent(
                 )
             }
 
-            visibleItems.groupBySection(state.selectedCategory).forEach { (section, items) ->
+            visibleItems.groupBySection(state.selectedSourceTitle).forEach { (section, items) ->
                 LightText(
                     text = section.uppercase(),
                     variant = LightTextVariant.Fine,
@@ -161,6 +192,7 @@ private fun HomeContent(
                 items.forEach { item ->
                     FeedItemRow(
                         item = item,
+                        showMetadata = state.selectedSourceTitle == null,
                         modifier = Modifier
                             .fillMaxWidth()
                             .lightClickable { onOpenItem(item) }
@@ -182,11 +214,12 @@ private fun FeedListSummary(
     filteredCount: Int,
     visibleCount: Int,
 ) {
-    val filterLabel = state.selectedCategory ?: "All sources"
-    val sourceCount = state.sourceStatuses.size
+    val filterLabel = state.selectedSourceTitle ?: "All sources"
+    val sourceCount = state.sourceTitles.size
     val failedCount = state.sourceStatuses.count { !it.successful }
     val sourceText = when {
         sourceCount == 0 -> filterLabel
+        state.selectedSourceTitle != null -> filterLabel
         failedCount == 0 -> "$filterLabel / $sourceCount sources"
         else -> "$filterLabel / ${sourceCount - failedCount} of $sourceCount sources"
     }
@@ -218,22 +251,29 @@ private fun FeedListSummary(
 @Composable
 private fun FeedItemRow(
     item: FeedItem,
+    showMetadata: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
-        LightText(
-            text = listOf(item.category, item.sourceTitle).joinToString(" / "),
-            variant = LightTextVariant.Fine,
-            lighten = true,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        if (showMetadata) {
+            LightText(
+                text = item.category,
+                variant = LightTextVariant.Fine,
+                lighten = true,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         LightText(
             text = item.title,
             variant = LightTextVariant.Copy,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 0.2f.gridUnitsAsDp()),
+            modifier = if (showMetadata) {
+                Modifier.padding(top = 0.2f.gridUnitsAsDp())
+            } else {
+                Modifier
+            },
         )
         if (item.publishedText.isNotBlank()) {
             LightText(
@@ -249,20 +289,33 @@ private fun FeedItemRow(
 }
 
 private fun EssentialFeedsUiState.filteredItems(): List<FeedItem> {
-    val category = selectedCategory ?: return items
-    return items.filter { it.category == category }
+    val sourceTitle = selectedSourceTitle ?: return items
+    return items.filter { it.sourceTitle == sourceTitle }
 }
 
 private fun EssentialFeedsUiState.hasMoreVisibleItems(): Boolean {
     return filteredItems().size > visibleItemLimit
 }
 
-private fun List<FeedItem>.groupBySection(selectedCategory: String?): Map<String, List<FeedItem>> {
-    return if (selectedCategory == null) {
-        groupBy { it.category }
-    } else {
+private fun List<FeedItem>.groupBySection(selectedSourceTitle: String?): Map<String, List<FeedItem>> {
+    return if (selectedSourceTitle == null) {
         groupBy { it.sourceTitle }
+    } else {
+        groupBy { it.category }
     }
+}
+
+private fun EssentialFeedsUiState.sourceOptionIndex(): Int {
+    val sourceIndex = selectedSourceTitle?.let { sourceTitles.indexOf(it) } ?: -1
+    return if (sourceIndex >= 0) sourceIndex + 1 else 0
+}
+
+private fun EssentialFeedsUiState.canMoveToPreviousSource(): Boolean {
+    return sourceOptionIndex() > 0
+}
+
+private fun EssentialFeedsUiState.canMoveToNextSource(): Boolean {
+    return sourceOptionIndex() < sourceTitles.size
 }
 
 @Composable

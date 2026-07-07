@@ -30,7 +30,8 @@ data class EssentialFeedsUiState(
     val items: List<FeedItem> = emptyList(),
     val customFeeds: List<FeedDefinition> = emptyList(),
     val sourceStatuses: List<FeedSourceStatus> = emptyList(),
-    val selectedCategory: String? = null,
+    val sourceTitles: List<String> = emptyList(),
+    val selectedSourceTitle: String? = null,
     val visibleItemLimit: Int = INITIAL_VISIBLE_ITEM_LIMIT,
     val errorMessage: String? = null,
 )

@@ -26,7 +26,12 @@ class EssentialFeedsViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val customFeeds = preferencesStore.loadCustomFeeds()
             activeFeeds = defaultFeeds + customFeeds
-            _uiState.update { it.copy(customFeeds = customFeeds) }
+            _uiState.update {
+                it.copy(
+                    customFeeds = customFeeds,
+                    sourceTitles = activeFeeds.sourceTitles(),
+                )
+            }
             refresh(initialLoad = true)
         }
     }
@@ -139,13 +144,25 @@ class EssentialFeedsViewModel(
         }
     }
 
-    fun cycleCategoryFilter() {
+    fun showPreviousSource() {
         _uiState.update { state ->
-            val categories = state.availableCategories()
-            val currentIndex = state.selectedCategory?.let { categories.indexOf(it) } ?: -1
-            val nextCategory = categories.getOrNull(currentIndex + 1)
+            val titles = activeFeeds.sourceTitles()
+            val currentIndex = state.sourceOptionIndex(titles)
+            val previousIndex = (currentIndex - 1).coerceAtLeast(0)
             state.copy(
-                selectedCategory = nextCategory,
+                selectedSourceTitle = titles.titleAtOptionIndex(previousIndex),
+                visibleItemLimit = INITIAL_VISIBLE_ITEM_LIMIT,
+            )
+        }
+    }
+
+    fun showNextSource() {
+        _uiState.update { state ->
+            val titles = activeFeeds.sourceTitles()
+            val currentIndex = state.sourceOptionIndex(titles)
+            val nextIndex = (currentIndex + 1).coerceAtMost(titles.size)
+            state.copy(
+                selectedSourceTitle = titles.titleAtOptionIndex(nextIndex),
                 visibleItemLimit = INITIAL_VISIBLE_ITEM_LIMIT,
             )
         }
@@ -171,7 +188,8 @@ class EssentialFeedsViewModel(
             _uiState.update {
                 it.copy(
                     customFeeds = updatedCustomFeeds,
-                    selectedCategory = null,
+                    sourceTitles = activeFeeds.sourceTitles(),
+                    selectedSourceTitle = null,
                     visibleItemLimit = INITIAL_VISIBLE_ITEM_LIMIT,
                     errorMessage = null,
                 )
@@ -196,8 +214,15 @@ private fun FeedLoadResult.errorMessage(): String? {
     return "Some feeds could not load: $failed$suffix"
 }
 
-private fun EssentialFeedsUiState.availableCategories(): List<String> {
-    return (items.map { it.category } + customFeeds.map { it.category })
-        .distinct()
-        .sorted()
+private fun List<FeedDefinition>.sourceTitles(): List<String> {
+    return map { it.title }.distinct()
+}
+
+private fun EssentialFeedsUiState.sourceOptionIndex(sourceTitles: List<String>): Int {
+    val sourceIndex = selectedSourceTitle?.let { sourceTitles.indexOf(it) } ?: -1
+    return if (sourceIndex >= 0) sourceIndex + 1 else 0
+}
+
+private fun List<String>.titleAtOptionIndex(index: Int): String? {
+    return if (index == 0) null else getOrNull(index - 1)
 }
