@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -43,65 +46,126 @@ class EssentialFeedsHomeScreen(sealedActivity: SealedLightActivity) :
     override fun Content() {
         val state by viewModel.uiState.collectAsState()
         val themeColors by LightThemeController.colors.collectAsState()
+        var removalCandidate by remember { mutableStateOf<String?>(null) }
 
         LightTheme(colors = themeColors) {
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(LightThemeTokens.colors.background),
             ) {
-                LightTopBar(
-                    center = LightTopBarCenter.Text("Essential Feeds"),
-                    rightButton = LightBarButton.Text(
-                        text = "ADD",
-                        onClick = {
-                            navigateTo(
-                                screenFactory = ::CustomFeedInputScreen,
-                                resultCallback = { input -> viewModel.addCustomFeed(input) },
-                            )
+                Column(modifier = Modifier.fillMaxSize()) {
+                    LightTopBar(
+                        center = LightTopBarCenter.Text("Essential Feeds"),
+                        rightButton = LightBarButton.Text(
+                            text = "ADD",
+                            onClick = {
+                                navigateTo(
+                                    screenFactory = ::CustomFeedInputScreen,
+                                    resultCallback = { input -> viewModel.addCustomFeed(input) },
+                                )
+                            },
+                        ),
+                        modifier = Modifier.padding(bottom = 1f.gridUnitsAsDp()),
+                    )
+
+                    SourceNavigationBar(
+                        state = state,
+                        onPreviousSource = viewModel::showPreviousSource,
+                        onNextSource = viewModel::showNextSource,
+                    )
+
+                    HomeContent(
+                        state = state,
+                        onOpenItem = { item ->
+                            navigateTo(screenFactory = {
+                                EssentialFeedDetailScreen(it, item)
+                            })
                         },
-                    ),
-                    modifier = Modifier.padding(bottom = 1f.gridUnitsAsDp()),
-                )
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                    )
 
-                SourceNavigationBar(
-                    state = state,
-                    onPreviousSource = viewModel::showPreviousSource,
-                    onNextSource = viewModel::showNextSource,
-                )
-
-                HomeContent(
-                    state = state,
-                    onOpenItem = { item ->
-                        navigateTo(screenFactory = {
-                            EssentialFeedDetailScreen(it, item)
-                        })
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                )
-
-                LightBottomBar(
-                    items = buildList {
-                        add(
-                            LightBarButton.Text(
-                                text = if (state.refreshing) "UPDATING" else "REFRESH",
-                                onClick = { viewModel.refresh() },
-                            ),
-                        )
-                        if (state.hasMoreVisibleItems()) {
+                    LightBottomBar(
+                        items = buildList {
                             add(
                                 LightBarButton.Text(
-                                    text = "MORE",
-                                    onClick = { viewModel.loadMore() },
+                                    text = if (state.refreshing) "UPDATING" else "REFRESH",
+                                    onClick = { viewModel.refresh() },
                                 ),
                             )
-                        }
-                    },
-                )
+                            state.selectedCustomSourceTitle?.let { sourceTitle ->
+                                add(
+                                    LightBarButton.Text(
+                                        text = "REMOVE",
+                                        onClick = { removalCandidate = sourceTitle },
+                                    ),
+                                )
+                            }
+                            if (state.hasMoreVisibleItems()) {
+                                add(
+                                    LightBarButton.Text(
+                                        text = "MORE",
+                                        onClick = { viewModel.loadMore() },
+                                    ),
+                                )
+                            }
+                        },
+                    )
+                }
+
+                removalCandidate?.let { sourceTitle ->
+                    RemoveFeedConfirmation(
+                        sourceTitle = sourceTitle,
+                        onCancel = { removalCandidate = null },
+                        onRemove = {
+                            removalCandidate = null
+                            viewModel.removeSelectedCustomFeed()
+                        },
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun RemoveFeedConfirmation(
+    sourceTitle: String,
+    onCancel: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(LightThemeTokens.colors.background),
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(horizontal = 1f.gridUnitsAsDp()),
+            contentAlignment = Alignment.Center,
+        ) {
+            LightText(
+                text = "Remove $sourceTitle?",
+                variant = LightTextVariant.Copy,
+                align = TextAlign.Center,
+            )
+        }
+        LightBottomBar(
+            items = listOf(
+                LightBarButton.Text(
+                    text = "CANCEL",
+                    onClick = onCancel,
+                ),
+                LightBarButton.Text(
+                    text = "REMOVE",
+                    onClick = onRemove,
+                ),
+            ),
+        )
     }
 }
 

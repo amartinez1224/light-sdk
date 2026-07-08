@@ -198,6 +198,27 @@ class EssentialFeedsViewModel(
         }
     }
 
+    fun removeSelectedCustomFeed() {
+        val selectedTitle = _uiState.value.selectedCustomSourceTitle ?: return
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val updatedCustomFeeds = _uiState.value.customFeeds
+                .withoutCustomFeedTitle(selectedTitle)
+            preferencesStore.saveCustomFeeds(updatedCustomFeeds)
+            activeFeeds = defaultFeeds + updatedCustomFeeds
+            _uiState.update {
+                it.copy(
+                    customFeeds = updatedCustomFeeds,
+                    sourceTitles = activeFeeds.sourceTitles(),
+                    selectedSourceTitle = null,
+                    visibleItemLimit = INITIAL_VISIBLE_ITEM_LIMIT,
+                    errorMessage = null,
+                )
+            }
+            refresh(initialLoad = false)
+        }
+    }
+
     override fun onCleared() {
         loadJob?.cancel()
         repository.close()
@@ -225,4 +246,8 @@ private fun EssentialFeedsUiState.sourceOptionIndex(sourceTitles: List<String>):
 
 private fun List<String>.titleAtOptionIndex(index: Int): String? {
     return if (index == 0) null else getOrNull(index - 1)
+}
+
+internal fun List<FeedDefinition>.withoutCustomFeedTitle(title: String): List<FeedDefinition> {
+    return filterNot { it.custom && it.title == title }
 }
