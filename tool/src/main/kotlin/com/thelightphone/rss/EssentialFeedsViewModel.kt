@@ -21,11 +21,13 @@ class EssentialFeedsViewModel(
     val uiState: StateFlow<EssentialFeedsUiState> = _uiState
     private var loadJob: Job? = null
     private var activeFeeds: List<FeedDefinition> = defaultFeeds
+    private var removedDefaultFeedUrls: Set<String> = emptySet()
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
             val customFeeds = preferencesStore.loadCustomFeeds()
-            activeFeeds = defaultFeeds + customFeeds
+            removedDefaultFeedUrls = preferencesStore.loadRemovedDefaultFeedUrls()
+            activeFeeds = buildActiveFeeds(customFeeds, removedDefaultFeedUrls)
             _uiState.update {
                 it.copy(
                     customFeeds = customFeeds,
@@ -184,7 +186,7 @@ class EssentialFeedsViewModel(
             }
             val updatedCustomFeeds = withoutDuplicate + feed
             preferencesStore.saveCustomFeeds(updatedCustomFeeds)
-            activeFeeds = defaultFeeds + updatedCustomFeeds
+            activeFeeds = buildActiveFeeds(updatedCustomFeeds, removedDefaultFeedUrls)
             _uiState.update {
                 it.copy(
                     customFeeds = updatedCustomFeeds,
@@ -198,20 +200,33 @@ class EssentialFeedsViewModel(
         }
     }
 
-    fun removeSelectedCustomFeed() {
-        val selectedTitle = _uiState.value.selectedCustomSourceTitle ?: return
+    fun removeSelectedFeed() {
+        val selectedTitle = _uiState.value.selectedRemovableSourceTitle ?: return
 
         viewModelScope.launch(Dispatchers.IO) {
-            val updatedCustomFeeds = _uiState.value.customFeeds
-                .withoutCustomFeedTitle(selectedTitle)
+            val selectedFeed = activeFeeds.firstOrNull { it.title == selectedTitle } ?: return@launch
+            val updatedCustomFeeds = if (selectedFeed.custom) {
+                _uiState.value.customFeeds.withoutCustomFeedTitle(selectedTitle)
+            } else {
+                _uiState.value.customFeeds
+            }
+            val updatedRemovedDefaultFeedUrls = if (selectedFeed.custom) {
+                removedDefaultFeedUrls
+            } else {
+                removedDefaultFeedUrls + selectedFeed.url
+            }
             preferencesStore.saveCustomFeeds(updatedCustomFeeds)
-            activeFeeds = defaultFeeds + updatedCustomFeeds
+            preferencesStore.saveRemovedDefaultFeedUrls(updatedRemovedDefaultFeedUrls)
+            removedDefaultFeedUrls = updatedRemovedDefaultFeedUrls
+            activeFeeds = buildActiveFeeds(updatedCustomFeeds, removedDefaultFeedUrls)
             _uiState.update {
                 it.copy(
                     customFeeds = updatedCustomFeeds,
                     sourceTitles = activeFeeds.sourceTitles(),
                     selectedSourceTitle = null,
                     visibleItemLimit = INITIAL_VISIBLE_ITEM_LIMIT,
+                    items = emptyList(),
+                    sourceStatuses = emptyList(),
                     errorMessage = null,
                 )
             }
@@ -250,4 +265,11 @@ private fun List<String>.titleAtOptionIndex(index: Int): String? {
 
 internal fun List<FeedDefinition>.withoutCustomFeedTitle(title: String): List<FeedDefinition> {
     return filterNot { it.custom && it.title == title }
+}
+
+internal fun buildActiveFeeds(
+    customFeeds: List<FeedDefinition>,
+    removedDefaultFeedUrls: Set<String>,
+): List<FeedDefinition> {
+    return defaultFeeds.filterNot { it.url in removedDefaultFeedUrls } + customFeeds
 }

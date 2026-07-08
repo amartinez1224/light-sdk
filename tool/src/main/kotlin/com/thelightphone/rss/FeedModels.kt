@@ -35,10 +35,8 @@ data class EssentialFeedsUiState(
     val visibleItemLimit: Int = INITIAL_VISIBLE_ITEM_LIMIT,
     val errorMessage: String? = null,
 ) {
-    val selectedCustomSourceTitle: String?
-        get() = selectedSourceTitle?.takeIf { selected ->
-            customFeeds.any { it.title == selected }
-        }
+    val selectedRemovableSourceTitle: String?
+        get() = selectedSourceTitle?.takeIf { selected -> sourceTitles.contains(selected) }
 }
 
 data class FeedSourceStatus(

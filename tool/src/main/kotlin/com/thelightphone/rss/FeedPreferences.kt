@@ -33,10 +33,27 @@ class FeedPreferencesStore(
             prefs[FeedPreferences.CUSTOM_FEEDS_JSON] = json.encodeToString(stored)
         }
     }
+
+    suspend fun loadRemovedDefaultFeedUrls(): Set<String> {
+        val stored = dataStore.data.first()[FeedPreferences.REMOVED_DEFAULT_FEED_URLS_JSON] ?: return emptySet()
+        return runCatching {
+            json.decodeFromString<List<String>>(stored)
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .toSet()
+        }.getOrDefault(emptySet())
+    }
+
+    suspend fun saveRemovedDefaultFeedUrls(urls: Set<String>) {
+        dataStore.edit { prefs ->
+            prefs[FeedPreferences.REMOVED_DEFAULT_FEED_URLS_JSON] = json.encodeToString(urls.sorted())
+        }
+    }
 }
 
 internal object FeedPreferences {
     val CUSTOM_FEEDS_JSON = stringPreferencesKey("custom_feeds_json")
+    val REMOVED_DEFAULT_FEED_URLS_JSON = stringPreferencesKey("removed_default_feed_urls_json")
 }
 
 internal fun StoredCustomFeed.toFeedDefinitionOrNull(): FeedDefinition? {

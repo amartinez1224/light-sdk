@@ -95,7 +95,7 @@ class EssentialFeedsHomeScreen(sealedActivity: SealedLightActivity) :
                                     onClick = { viewModel.refresh() },
                                 ),
                             )
-                            state.selectedCustomSourceTitle?.let { sourceTitle ->
+                            state.selectedRemovableSourceTitle?.let { sourceTitle ->
                                 add(
                                     LightBarButton.Text(
                                         text = "REMOVE",
@@ -121,7 +121,7 @@ class EssentialFeedsHomeScreen(sealedActivity: SealedLightActivity) :
                         onCancel = { removalCandidate = null },
                         onRemove = {
                             removalCandidate = null
-                            viewModel.removeSelectedCustomFeed()
+                            viewModel.removeSelectedFeed()
                         },
                     )
                 }

@@ -18,23 +18,23 @@ class FeedRemovalTest {
     )
 
     @Test
-    fun selectedCustomSourceTitleReturnsOnlyCustomSources() {
+    fun selectedRemovableSourceTitleReturnsSelectedActiveSource() {
         val state = EssentialFeedsUiState(
-            customFeeds = listOf(customFeed),
+            sourceTitles = listOf(defaultFeed.title, customFeed.title),
             selectedSourceTitle = customFeed.title,
         )
 
-        assertEquals(customFeed.title, state.selectedCustomSourceTitle)
+        assertEquals(customFeed.title, state.selectedRemovableSourceTitle)
     }
 
     @Test
-    fun selectedCustomSourceTitleIgnoresDefaultSources() {
+    fun selectedRemovableSourceTitleIgnoresUnknownSources() {
         val state = EssentialFeedsUiState(
-            customFeeds = listOf(customFeed),
+            sourceTitles = listOf(customFeed.title),
             selectedSourceTitle = defaultFeed.title,
         )
 
-        assertNull(state.selectedCustomSourceTitle)
+        assertNull(state.selectedRemovableSourceTitle)
     }
 
     @Test
@@ -48,5 +48,38 @@ class FeedRemovalTest {
             .withoutCustomFeedTitle(customFeed.title)
 
         assertEquals(listOf(defaultFeed, otherCustomFeed), result)
+    }
+
+    @Test
+    fun buildActiveFeedsHidesRemovedDefaultFeeds() {
+        val removedDefaultFeed = defaultFeeds.first()
+
+        val result = buildActiveFeeds(
+            customFeeds = listOf(customFeed),
+            removedDefaultFeedUrls = setOf(removedDefaultFeed.url),
+        )
+
+        assertEquals(false, result.any { it.url == removedDefaultFeed.url })
+        assertEquals(true, result.contains(customFeed))
+    }
+
+    @Test
+    fun buildActiveFeedsCanReturnOnlyCustomFeeds() {
+        val result = buildActiveFeeds(
+            customFeeds = listOf(customFeed),
+            removedDefaultFeedUrls = defaultFeeds.map { it.url }.toSet(),
+        )
+
+        assertEquals(listOf(customFeed), result)
+    }
+
+    @Test
+    fun buildActiveFeedsCanReturnEmptyList() {
+        val result = buildActiveFeeds(
+            customFeeds = emptyList(),
+            removedDefaultFeedUrls = defaultFeeds.map { it.url }.toSet(),
+        )
+
+        assertEquals(emptyList(), result)
     }
 }
